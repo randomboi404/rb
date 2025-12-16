@@ -1,0 +1,37 @@
+name: Sync Cloudflare DNS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [closed]
+
+jobs:
+  sync:
+    if: github.event_name == 'push' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    
+    concurrency:
+      group: dns-sync
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Capture changes
+        run: |
+          git diff --name-status HEAD~1 HEAD > changes.txt
+
+      - name: Sync DNS
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+          CF_DOMAIN: ${{ secrets.CF_DOMAIN }}
+        run: |
+          node scripts/sync-dns.js
