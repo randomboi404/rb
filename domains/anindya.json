@@ -1,1 +1,17 @@
-.
+{
+  "user": {
+    "username": "AnindyaJha"
+  },
+  "description": {
+    "purpose": "Personal Portfolio Website"
+  },
+  "subdomain": "anindya",
+  "records": [
+    {
+      "type": "CNAME",
+      "name": "anindya",
+      "value": "anindyajha.github.io",
+      "proxied": false
+    }
+  ]
+}
