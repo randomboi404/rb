@@ -1,103 +1,85 @@
 import fs from "fs";
 
 const CF_API = "https://api.cloudflare.com/client/v4";
-const TOKEN = process.env.CF_API_TOKEN;
-const ZONE = process.env.CF_ZONE_ID;
-const DOMAIN = "is-an-ai.dev";
+const { CF_API_TOKEN, CF_ZONE_ID, CF_DOMAIN } = process.env;
 
 const headers = {
-  Authorization: `Bearer ${TOKEN}`,
+  Authorization: `Bearer ${CF_API_TOKEN}`,
   "Content-Type": "application/json"
 };
 
-const ALLOWED_TYPES = ["A", "AAAA", "CNAME", "MX", "TXT"];
+const changes = fs.readFileSync("changes.txt", "utf8")
+  .split("\n")
+  .filter(Boolean)
+  .map(l => {
+    const [status, file] = l.split(/\s+/);
+    return { status, file };
+  })
+  .filter(c => c.file.startsWith("domains/") && c.file.endsWith(".json"));
 
-async function getExisting() {
-  const res = await fetch(`${CF_API}/zones/${ZONE}/dns_records`, { headers });
-  const json = await res.json();
-  return json.result;
-}
-
-function validateName(name) {
-  if (name.includes("*")) throw new Error(`Wildcard not allowed: ${name}`);
-  if (name === "@") throw new Error(`Root not allowed`);
-  if (name.includes(DOMAIN)) throw new Error(`Full domain not allowed: ${name}`);
-}
-
-function buildPayload(record) {
-  if (!ALLOWED_TYPES.includes(record.type)) {
-    throw new Error(`Unsupported record type: ${record.type}`);
-  }
-
-  validateName(record.name);
-
-  const payload = {
-    type: record.type,
-    name: `${record.name}.${DOMAIN}`,
-    content: record.value,
-    ttl: 1
-  };
-
-  // ---- explicit per-record handling ----
-
-  if (record.type === "A" || record.type === "AAAA") {
-    payload.proxied = record.proxied ?? false;
-  }
-
-  else if (record.type === "CNAME") {
-    payload.proxied = record.proxied ?? false;
-  }
-
-  else if (record.type === "MX") {
-    payload.priority = record.priority ?? 10;
-    payload.proxied = false;
-  }
-
-  else if (record.type === "TXT") {
-    payload.proxied = false;
-  }
-
-  return payload;
-}
-
-async function upsert(payload, existing) {
-  const found = existing.find(
-    r => r.type === payload.type && r.name === payload.name
-  );
-
-  const url = found
-    ? `${CF_API}/zones/${ZONE}/dns_records/${found.id}`
-    : `${CF_API}/zones/${ZONE}/dns_records`;
-
-  const method = found ? "PUT" : "POST";
-
-  console.log(`${found ? "Updating" : "Creating"} ${payload.type} ${payload.name}`);
-
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: JSON.stringify(payload)
+async function cf(path, options = {}) {
+  const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+    ...options,
+    headers
   });
-
-  if (!res.ok) {
-    throw new Error(await res.text());
-  }
+  const j = await r.json();
+  if (!j.success) throw new Error(JSON.stringify(j.errors));
+  return j.result;
 }
 
-(async () => {
-  const files = fs.readFileSync(process.argv[2], "utf8")
-    .split("\n")
-    .filter(Boolean);
+async function listRecords() {
+  return cf(`/zones/${CF_ZONE_ID}/dns_records?per_page=500`);
+}
 
-  const existing = await getExisting();
-
-  for (const file of files) {
-    const data = JSON.parse(fs.readFileSync(file, "utf8"));
-
-    // user section intentionally ignored
-    for (const record of data.records) {
-      const payload = buildPayload(record);
-      await upsert(payload, existing);
+async function deleteSubdomain(sub) {
+  const records = await listRecords();
+  for (const r of records) {
+    if (r.name.endsWith(`.${sub}.${CF_DOMAIN}`)) {
+      await cf(`/zones/${CF_ZONE_ID}/dns_records/${r.id}`, {
+        method: "DELETE"
+      });
     }
   }
-})();
+}
+
+async function applyFile(file) {
+  const data = JSON.parse(fs.readFileSync(file, "utf8"));
+  const existing = await listRecords();
+
+  for (const r of data.records) {
+    const name = `${r.name}.${CF_DOMAIN}`;
+    const match = existing.find(e => e.type === r.type && e.name === name);
+
+    const payload = {
+      type: r.type === "URL" ? "A" : r.type,
+      name,
+      content: r.value,
+      proxied: r.proxied ?? false,
+      ...(r.priority ? { priority: r.priority } : {})
+    };
+
+    if (match) {
+      await cf(`/zones/${CF_ZONE_ID}/dns_records/${match.id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload)
+      });
+    } else {
+      await cf(`/zones/${CF_ZONE_ID}/dns_records`, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+    }
+  }
+}
+
+for (const c of changes) {
+  if (c.status === "D") {
+    const sub = c.file.replace("domains/", "").replace(".json", "");
+    await deleteSubdomain(sub);
+  }
+
+  if (c.status === "A" || c.status === "M") {
+    await applyFile(c.file);
+  }
+}
+

@@ -1,44 +1,34 @@
 name: Sync Cloudflare DNS
 
 on:
+  push:
+    branches: [main]
   pull_request:
     types: [closed]
-    paths:
-      - "domains/**.json"
 
 jobs:
   sync:
-    if: github.event.pull_request.merged == true
+    if: github.event_name == 'push' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 2
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Get changed domain files
-        id: changed
+      - name: Capture changes
         run: |
-          echo "Detecting changed domain files..."
-          git diff --name-only HEAD~1 HEAD \
-            | grep '^domains/.*\.json$' \
-            > changed.txt || true
+          git diff --name-status HEAD~1 HEAD > changes.txt
 
-          echo "Changed files:"
-          cat changed.txt || echo "(none)"
-
-      - name: Sync DNS to Cloudflare
-        if: hashFiles('changed.txt') != ''
+      - name: Sync DNS
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
           CF_DOMAIN: ${{ secrets.CF_DOMAIN }}
         run: |
-          node scripts/sync-dns.js changed.txt
+          node scripts/sync-dns.js
 
