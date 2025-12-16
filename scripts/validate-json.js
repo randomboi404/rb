@@ -2,8 +2,8 @@ import fs from "fs";
 
 // Constants
 const ALLOWED_TYPES = ["A", "AAAA", "CNAME", "MX", "TXT", "SRV", "CAA", "PTR"];
-const REQUIRED_TOP_KEYS = ["user", "description", "subdomain", "records"];
-const ALLOWED_TOP_KEYS = ["user", "subdomain", "records"];
+const REQUIRED_TOP_KEYS = ["user", "subdomain", "records"];
+const ALLOWED_TOP_KEYS = ["user", "description", "subdomain", "records"];
 const REQUIRED_USER_KEYS = ["username"];
 
 const files = fs.readFileSync("changes.txt", "utf8")
