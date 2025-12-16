@@ -1,0 +1,14 @@
+{
+  "user": {
+    "username": "bob"
+  },
+  "subdomain": "example",
+  "records": [
+    {
+      "type": "A",
+      "name": "a.example",
+      "value": "192.168.1.1",
+      "proxied": true
+    }
+  ]
+}
