@@ -1,0 +1,17 @@
+{
+  "user": {
+    "username": "shreyash0467"
+  },
+  "description": {
+    "purpose": "Portfolio Site"
+  },
+  "subdomain": "shreyash",
+  "records": [
+    {
+      "type": "CNAME",
+      "name": "shreyash0467",
+      "value": "shreyash0467.github.io",
+      "proxied": false
+    }
+  ]
+}
