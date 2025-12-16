@@ -1,0 +1,17 @@
+{
+  "user": {
+    "username": "LicKzDaGreaT"
+  },
+  "description": {
+    "purpose": "personal projects"
+  },
+  "subdomain": "lickzy",
+  "records": [
+    {
+      "type": "CNAME",
+      "name": "lickzy",
+      "value": "lickzy.github.io",
+      "proxied": false
+    }
+  ]
+}
