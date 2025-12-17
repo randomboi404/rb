@@ -26,6 +26,45 @@ async function cf(path, options = {}) {
     return json.result;
 }
 
+// Helper to manage Redirect Rules
+async function syncRedirects(sub, urlRecords, domain) {
+    const hostname = `${sub}.${domain}`;
+    
+    // Get or Create the Redirect Ruleset
+    const sets = await cf(`/zones/${CF_ZONE_ID}/rulesets`);
+    let ruleset = sets.find(s => s.phase === "http_request_dynamic_redirect" && s.kind === "zone");
+    
+    if (!ruleset) {
+        ruleset = await cf(`/zones/${CF_ZONE_ID}/rulesets`, {
+            method: "POST",
+            body: JSON.stringify({ name: "GitOps Redirects", kind: "zone", phase: "http_request_dynamic_redirect", rules: [] })
+        });
+    }
+
+    // Fetch current rules and filter out existing ones for this hostname
+    const currentRules = (await cf(`/zones/${CF_ZONE_ID}/rulesets/${ruleset.id}`)).rules || [];
+    const otherRules = currentRules.filter(r => !r.expression.includes(`"${hostname}"`)); // strict quote match
+
+    // Build new rules for this specific subdomain
+    const newRules = urlRecords.map(r => ({
+        description: `Redirect: ${hostname}`,
+        expression: `(http.host eq "${hostname}")`,
+        action: "redirect",
+        action_parameters: {
+            from_value: { status_code: 301, target_url: { value: r.value }, preserve_query_string: true }
+        }
+    }));
+
+    // Update if changes detected
+    if (otherRules.length + newRules.length !== currentRules.length || newRules.length > 0) {
+        console.log(`   🔀 Syncing ${newRules.length} redirect rules`);
+        await cf(`/zones/${CF_ZONE_ID}/rulesets/${ruleset.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ rules: [...otherRules, ...newRules] })
+        });
+    }
+}
+
 async function listAllRecords() {
     const records = [];
     let page = 1;
@@ -55,6 +94,17 @@ function recordsForSubdomain(sub, all, domain) {
 
 function buildPayload(r) {
     const type = r.type;
+
+    // Intercept URL type to create dummy AAAA
+    if (type === "URL") {
+        return {
+            type: "AAAA",
+            name: r.name,
+            content: "100::",
+            ttl: 1,
+            proxied: true
+        };
+    }
 
     const payload = {
         type,
@@ -137,7 +187,7 @@ async function applyFile(file, domain) {
     const keep = new Set();
 
     for (const r of data.records) {
-        const payload = buildPayload(r);
+        const payload = buildPayload(r); // URL becomes AAAA here
 
         const match = existing.find(
             e => e.type === payload.type && e.name === payload.name
@@ -160,6 +210,12 @@ async function applyFile(file, domain) {
                 body: JSON.stringify(payload),
             });
         }
+    }
+
+    // Sync Redirect Rules after DNS is settled
+    const urlRecords = data.records.filter(r => r.type === "URL");
+    if (urlRecords.length > 0) {
+        await syncRedirects(sub, urlRecords, domain);
     }
 
     // Cleanup
@@ -200,6 +256,10 @@ for (const c of changes) {
                 method: "DELETE",
             });
         }
+        
+        // Clean up redirect rules on delete
+        await syncRedirects(sub, [], CF_DOMAIN);
+        
     } else {
         await applyFile(c.file, CF_DOMAIN);
     }
