@@ -10,6 +10,7 @@ const ALLOWED_TYPES = [
     "MX",
     "SRV",
     "CAA",
+    "NS", // Added NS
     "DS",
     "TLSA",
 ];
@@ -163,6 +164,9 @@ for (const file of files) {
         fail(`${file}: maximum ${MAX_RECORDS} DNS records allowed`);
     }
 
+    let hasNS = false; // Track NS records
+    let hasDS = false; // Track DS records
+
     // validate each record
     for (const r of data.records) {
         // record must be object
@@ -177,6 +181,13 @@ for (const file of files) {
             if (typeof r.proxied !== "boolean") fail(`${file}: 'proxied' must be a boolean`);
             if (!["A", "AAAA", "CNAME"].includes(type)) {
                 fail(`${file}: 'proxied' is only allowed for A, AAAA, and CNAME records`);
+            }
+        }
+
+        // NS and DS specific checks: must be at root of subdomain and cannot be proxied
+        if (type === "NS" || type === "DS") {
+            if (r.name !== data.subdomain) {
+                fail(`${file}: ${type} records must be set on the subdomain exactly, not a child`);
             }
         }
 
@@ -288,6 +299,14 @@ for (const file of files) {
             }
         }
 
+        // NS record
+        else if (type === "NS") {
+            if (typeof r.value !== "string") {
+                fail(`${file}: NS record requires string 'value'`);
+            }
+            hasNS = true;
+        }
+
         // DS record
         else if (type === "DS") {
             if (typeof r.key_tag !== "number") {
@@ -302,6 +321,7 @@ for (const file of files) {
             if (typeof r.digest !== "string") {
                 fail(`${file}: DS record requires string 'digest'`);
             }
+            hasDS = true;
         }
 
         // TLSA record
@@ -324,6 +344,10 @@ for (const file of files) {
         else {
             fail(`${file}: unreachable record type "${type}"`);
         }
+    }
+
+    if (hasDS && !hasNS) {
+        fail(`${file}: DS records are useless without NS records.`);
     }
 }
 
