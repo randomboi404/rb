@@ -1,0 +1,19 @@
+{
+  "user": {
+    "username": "example-user"
+  },
+  "description": {
+    "purpose": "DNSSEC for secure delegation"
+  },
+  "subdomain": "secure",
+  "records": [
+    {
+      "type": "DS",
+      "name": "secure",
+      "key_tag": 2371,
+      "algorithm": 13,
+      "digest_type": 2,
+      "digest": "8F1C2D4A5E6B7C9D0A1B2C3D4E5F6789ABCDEF0123456789ABCDEF01234567"
+    }
+  ]
+}
