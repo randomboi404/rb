@@ -1,6 +1,6 @@
 {
   "user": {
-    "username": "ShreyashTailor"
+    "username": "shreyash0467"
   },
   "description": {
     "purpose": "Portfolio Site"
@@ -9,8 +9,8 @@
   "records": [
     {
       "type": "CNAME",
-      "name": "shreyash",
-      "value": "shreyashtailor.github.io",
+      "name": "shreyash0467",
+      "value": "shreyash0467.github.io",
       "proxied": false
     }
   ]
