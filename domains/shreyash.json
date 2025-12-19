@@ -1,17 +1,9 @@
 {
-  "user": {
-    "username": "shreyash0467"
-  },
-  "description": {
-    "purpose": "Portfolio Site"
-  },
-  "subdomain": "shreyash",
-  "records": [
-    {
-      "type": "CNAME",
-      "name": "shreyash0467",
-      "value": "shreyash0467.github.io",
-      "proxied": false
+    "owner": {
+        "username": "tester123"
+    },
+    "records": {
+        "A": ["1.1.1.1"],
+        "CNAME": "gh-pages.github.io"
     }
-  ]
 }
