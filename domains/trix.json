@@ -1,0 +1,17 @@
+{
+    "user": {
+        "username": "tr1xem",
+        "email": "tirx@is-an-ai.dev",
+        "discord": "tr1x_em"
+    },
+    "subdomain": "trix",
+    "records": [
+
+{
+    "type": "CNAME",
+    "name": "trix",
+    "value": "bio-81b.pages.dev",
+    "proxied": true
+}
+    ]
+}
